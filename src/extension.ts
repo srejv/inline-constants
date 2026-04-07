@@ -87,6 +87,10 @@ export function activate(context: vscode.ExtensionContext): void {
       DOCUMENT_SELECTOR,
       new ConstantLinkProvider(),
     ),
+    vscode.languages.registerHoverProvider(
+      DOCUMENT_SELECTOR,
+      new ConstantHoverProvider(evaluator),
+    ),
     vscode.window.onDidChangeActiveTextEditor(() => {
       scheduleContextUpdate(evaluator);
     }),
@@ -183,6 +187,38 @@ class ConstantLinkProvider implements vscode.DocumentLinkProvider {
     }
 
     return links;
+  }
+}
+
+class ConstantHoverProvider implements vscode.HoverProvider {
+  public constructor(private readonly evaluator: ReplacementEvaluator) {}
+
+  public async provideHover(
+    document: vscode.TextDocument,
+    position: vscode.Position,
+  ): Promise<vscode.Hover | undefined> {
+    if (!isSupportedDocument(document) || getClickBehavior() !== 'hoverLink') {
+      return undefined;
+    }
+
+    const plan = await this.evaluator.buildPlan(document, position);
+    if (!plan) {
+      return undefined;
+    }
+
+    const commandUri = buildCommandUri(document.uri, position);
+    const link = new vscode.MarkdownString(
+      `[Replace ${plan.displayName} with value](${commandUri})`,
+      true,
+    );
+    link.isTrusted = { enabledCommands: [COMMAND_REPLACE] };
+
+    const preview = new vscode.MarkdownString(
+      `Inlines to: \`${escapeMarkdownCode(plan.replacementText)}\``,
+      true,
+    );
+
+    return new vscode.Hover([link, preview], plan.symbolRange);
   }
 }
 
@@ -1222,12 +1258,16 @@ function buildCommandUri(documentUri: vscode.Uri, position: vscode.Position): vs
   return vscode.Uri.parse(`command:${COMMAND_REPLACE}?${payload}`);
 }
 
-function getClickBehavior(): 'disabled' | 'editorLink' {
+function getClickBehavior(): 'disabled' | 'editorLink' | 'hoverLink' {
   const configuredValue = vscode.workspace
     .getConfiguration('constantsReplacement')
     .get<string>('clickBehavior', 'disabled');
 
-  return configuredValue === 'editorLink' ? 'editorLink' : 'disabled';
+  if (configuredValue === 'editorLink' || configuredValue === 'hoverLink') {
+    return configuredValue;
+  }
+
+  return 'disabled';
 }
 
 function getParenthesizeExpressions(): boolean {
@@ -1246,4 +1286,8 @@ function sameUri(left: vscode.Uri, right: vscode.Uri): boolean {
 
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function escapeMarkdownCode(text: string): string {
+  return text.replace(/`/g, '\\`');
 }

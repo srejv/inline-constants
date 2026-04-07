@@ -43,10 +43,11 @@
           "type": "string",
           "enum": [
             "disabled",
-            "editorLink"
+            "editorLink",
+            "hoverLink"
           ],
-          "default": "disabled",
-          "markdownDescription": "Enable an optional editor-link click path for constants declared in the current file. The actual modifier key follows VS Code's built-in link gesture settings, including `editor.multiCursorModifier`."
+          "default": "hoverLink",
+          "markdownDescription": "Choose the optional click workflow. `hoverLink` shows a clickable action in the hover tooltip and is the recommended mode. `editorLink` turns same-file usages into editor links, but VS Code's built-in Go to Definition gesture may still take precedence."
         },
         "constantsReplacement.parenthesizeExpressions": {
           "type": "boolean",
