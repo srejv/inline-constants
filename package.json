@@ -1,0 +1,68 @@
+{
+  "name": "constants-replacement",
+  "displayName": "Constants Replacement",
+  "description": "Inline C/C++ constant usages from defines, const, and constexpr declarations.",
+  "version": "0.0.1",
+  "publisher": "localdev",
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:constantsReplacement.replaceAtCursor",
+    "onLanguage:c",
+    "onLanguage:cpp",
+    "onLanguage:cuda-cpp",
+    "onLanguage:objective-c",
+    "onLanguage:objective-cpp"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "constantsReplacement.replaceAtCursor",
+        "title": "Replace Constant With Value",
+        "category": "Constants Replacement"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "constantsReplacement.replaceAtCursor",
+          "when": "editorTextFocus && constantsReplacement.canReplaceAtCursor",
+          "group": "1_modification"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Constants Replacement",
+      "properties": {
+        "constantsReplacement.clickBehavior": {
+          "type": "string",
+          "enum": [
+            "disabled",
+            "editorLink"
+          ],
+          "default": "disabled",
+          "markdownDescription": "Enable an optional editor-link click path for constants declared in the current file. The actual modifier key follows VS Code's built-in link gesture settings, including `editor.multiCursorModifier`."
+        },
+        "constantsReplacement.parenthesizeExpressions": {
+          "type": "boolean",
+          "default": true,
+          "description": "Wrap inserted expressions in parentheses when they contain top-level operators."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.30",
+    "@types/vscode": "^1.96.0",
+    "typescript": "^5.8.3"
+  }
+}
