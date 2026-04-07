@@ -300,9 +300,11 @@ class ReplacementEvaluator {
           return undefined;
         }
 
+        const qualifiedUsageRange = extendQualifiedConstUsageRange(document, symbolRange);
+
         return {
           displayName: symbolName,
-          replacementRange: symbolRange,
+          replacementRange: qualifiedUsageRange,
           replacementText,
           sourceType: 'constVariable',
           symbolRange,
@@ -704,6 +706,38 @@ function getIdentifierRange(
   return document.getWordRangeAtPosition(position, /[A-Za-z_][A-Za-z0-9_]*/);
 }
 
+function extendQualifiedConstUsageRange(
+  document: vscode.TextDocument,
+  symbolRange: vscode.Range,
+): vscode.Range {
+  const text = document.getText();
+  let startOffset = document.offsetAt(symbolRange.start);
+
+  while (startOffset > 0) {
+    const beforeOperatorOffset = skipWhitespaceBackward(text, startOffset);
+    if (
+      beforeOperatorOffset < 2 ||
+      text[beforeOperatorOffset - 2] !== ':' ||
+      text[beforeOperatorOffset - 1] !== ':'
+    ) {
+      break;
+    }
+
+    const segmentEndOffset = skipWhitespaceBackward(text, beforeOperatorOffset - 2);
+    const segmentStartOffset = findQualifiedSegmentStart(text, segmentEndOffset);
+    if (segmentStartOffset === undefined) {
+      if (beforeOperatorOffset === 2) {
+        startOffset = 0;
+      }
+      break;
+    }
+
+    startOffset = segmentStartOffset;
+  }
+
+  return new vscode.Range(document.positionAt(startOffset), symbolRange.end);
+}
+
 function findDeclarationStartLine(document: vscode.TextDocument, lineNumber: number): number {
   let startLine = lineNumber;
 
@@ -835,6 +869,76 @@ function skipWhitespace(text: string, index: number): number {
     currentIndex += 1;
   }
   return currentIndex;
+}
+
+function skipWhitespaceBackward(text: string, index: number): number {
+  let currentIndex = index;
+  while (currentIndex > 0 && /\s/.test(text[currentIndex - 1])) {
+    currentIndex -= 1;
+  }
+  return currentIndex;
+}
+
+function findQualifiedSegmentStart(text: string, segmentEndOffset: number): number | undefined {
+  if (segmentEndOffset <= 0) {
+    return undefined;
+  }
+
+  const segmentEndCharacter = text[segmentEndOffset - 1];
+  if (segmentEndCharacter === '>') {
+    const templateStartOffset = findMatchingAngleBracketStart(text, segmentEndOffset - 1);
+    if (templateStartOffset < 0) {
+      return undefined;
+    }
+
+    const identifierEndOffset = skipWhitespaceBackward(text, templateStartOffset);
+    return findIdentifierStart(text, identifierEndOffset);
+  }
+
+  return findIdentifierStart(text, segmentEndOffset);
+}
+
+function findIdentifierStart(text: string, identifierEndOffset: number): number | undefined {
+  if (identifierEndOffset <= 0 || !isIdentifierPart(text[identifierEndOffset - 1])) {
+    return undefined;
+  }
+
+  let cursor = identifierEndOffset - 1;
+  while (cursor >= 0 && isIdentifierPart(text[cursor])) {
+    cursor -= 1;
+  }
+
+  const startOffset = cursor + 1;
+  return isIdentifierStart(text[startOffset]) ? startOffset : undefined;
+}
+
+function findMatchingAngleBracketStart(text: string, closingIndex: number): number {
+  let depth = 0;
+
+  for (let index = closingIndex; index >= 0; index -= 1) {
+    const current = text[index];
+    if (current === '>') {
+      depth += 1;
+      continue;
+    }
+
+    if (current === '<') {
+      depth -= 1;
+      if (depth === 0) {
+        return index;
+      }
+    }
+  }
+
+  return -1;
+}
+
+function isIdentifierPart(character: string | undefined): boolean {
+  return character !== undefined && /[A-Za-z0-9_]/.test(character);
+}
+
+function isIdentifierStart(character: string | undefined): boolean {
+  return character !== undefined && /[A-Za-z_]/.test(character);
 }
 
 function findMatchingCharacter(
