@@ -46,4 +46,6 @@ npm run compile
 npm test
 ```
 
+`npm test` runs both the fast unit tests for the shared parsing helpers and the VS Code extension-host integration tests.
+
 Press `F5` in VS Code to launch the extension development host.
