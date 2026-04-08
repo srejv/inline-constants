@@ -9,7 +9,7 @@ suite('Constants Replacement Extension', () => {
   const disposables: vscode.Disposable[] = [];
 
   suiteSetup(async () => {
-    const extension = vscode.extensions.getExtension('localdev.constants-replacement');
+    const extension = vscode.extensions.getExtension('srejv.constants-replacement');
     if (!extension) {
       throw new Error('Expected extension to be available in the test host.');
     }
