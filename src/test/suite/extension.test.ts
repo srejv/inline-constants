@@ -59,6 +59,36 @@ suite('Constants Replacement Extension', () => {
     assert.match(editor.document.getText(), /return 20\.0f;/);
   });
 
+  test('replaces const brace initializer usage', async () => {
+    const editor = await openCppEditor([
+      'const int basePadding{24};',
+      '',
+      'int render() {',
+      '  return basePadding;',
+      '}',
+    ].join('\n'));
+
+    setCursor(editor, 'basePadding', 1);
+    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+
+    assert.match(editor.document.getText(), /return 24;/);
+  });
+
+  test('replaces const parenthesized initializer usage', async () => {
+    const editor = await openCppEditor([
+      'const float scaleFactor(1.5f);',
+      '',
+      'float render() {',
+      '  return scaleFactor;',
+      '}',
+    ].join('\n'));
+
+    setCursor(editor, 'scaleFactor', 1);
+    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+
+    assert.match(editor.document.getText(), /return 1\.5f;/);
+  });
+
   test('replaces function-like macro usage with expanded call-site arguments', async () => {
     const editor = await openCppEditor([
       '#define ADD_ONE(x) ((x) + 1)',
@@ -88,6 +118,39 @@ suite('Constants Replacement Extension', () => {
 
     assert.equal(editor.document.getText(), before);
   });
+
+  test('does not offer replacement code actions on the definition itself', async () => {
+    const editor = await openCppEditor([
+      'constexpr float emptyStateFontSize = 20.0f;',
+      'float render() {',
+      '  return emptyStateFontSize;',
+      '}',
+    ].join('\n'));
+
+    setCursor(editor, 'emptyStateFontSize');
+    const actions = await getReplaceActions(editor);
+
+    assert.equal(actions.length, 0);
+  });
+
+  test('does not offer replacement for unsupported variadic macros', async () => {
+    const editor = await openCppEditor([
+      '#define LOG_VALUE(fmt, ...) fmt',
+      '',
+      'const char* render(int value) {',
+      '  return LOG_VALUE("%d", value);',
+      '}',
+    ].join('\n'));
+
+    setCursor(editor, 'LOG_VALUE', 1);
+    const before = editor.document.getText();
+    const actions = await getReplaceActions(editor);
+
+    assert.equal(actions.length, 0);
+
+    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+    assert.equal(editor.document.getText(), before);
+  });
 });
 
 async function openCppEditor(content: string): Promise<vscode.TextEditor> {
@@ -114,6 +177,17 @@ function setCursor(editor: vscode.TextEditor, symbol: string, occurrence = 0): v
 
   const position = editor.document.positionAt(symbolOffset + Math.floor(symbol.length / 2));
   editor.selection = new vscode.Selection(position, position);
+}
+
+async function getReplaceActions(
+  editor: vscode.TextEditor,
+): Promise<(vscode.Command | vscode.CodeAction)[]> {
+  return (await vscode.commands.executeCommand<(vscode.Command | vscode.CodeAction)[]>(
+    'vscode.executeCodeActionProvider',
+    editor.document.uri,
+    editor.selection,
+    vscode.CodeActionKind.RefactorInline.value,
+  )) ?? [];
 }
 
 function findDefinitionRange(document: vscode.TextDocument, symbol: string): vscode.Range | undefined {

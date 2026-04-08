@@ -48,4 +48,6 @@ npm test
 
 `npm test` runs both the fast unit tests for the shared parsing helpers and the VS Code extension-host integration tests.
 
+The integration tests currently cover `const` and `constexpr` replacements, scope-qualified usages, function-like macros, and refusal cases such as definition sites and unsupported variadic macros.
+
 Press `F5` in VS Code to launch the extension development host.
