@@ -1,4 +1,5 @@
 import * as assert from 'node:assert/strict';
+import { setTimeout as delay } from 'node:timers/promises';
 
 import * as vscode from 'vscode';
 
@@ -9,7 +10,9 @@ suite('Constants Replacement Extension', () => {
 
   suiteSetup(async () => {
     const extension = vscode.extensions.getExtension('localdev.constants-replacement');
-    assert.ok(extension, 'Expected extension to be available in the test host.');
+    if (!extension) {
+      throw new Error('Expected extension to be available in the test host.');
+    }
     await extension.activate();
 
     disposables.push(
@@ -425,6 +428,41 @@ suite('Constants Replacement Extension', () => {
   }
 
   test('does not offer replacement for const declarations without an initializer', async () => {
+
+    test('sets context availability true on usage and false on whitespace', async function () {
+      this.timeout(10000);
+
+      const editor = await openEditor([
+        'constexpr int emptyStatePadding = 24;',
+        'int render() {',
+        '  return emptyStatePadding;',
+        '}',
+      ].join('\n'));
+
+      setCursor(editor, 'emptyStatePadding', 1);
+      await waitForCanReplaceContext(true);
+
+      const whitespacePosition = new vscode.Position(2, 2);
+      editor.selection = new vscode.Selection(whitespacePosition, whitespacePosition);
+      await waitForCanReplaceContext(false);
+    });
+
+    test('sets context availability false on the definition site', async function () {
+      this.timeout(10000);
+
+      const editor = await openEditor([
+        'constexpr int emptyStatePadding = 24;',
+        'int render() {',
+        '  return emptyStatePadding;',
+        '}',
+      ].join('\n'));
+
+      setCursor(editor, 'emptyStatePadding');
+      await waitForCanReplaceContext(false);
+
+      setCursor(editor, 'emptyStatePadding', 1);
+      await waitForCanReplaceContext(true);
+    });
     const editor = await openEditor([
       'const int emptyStatePadding;',
       'int render() {',
@@ -497,6 +535,24 @@ async function getReplaceActions(
     editor.selection,
     vscode.CodeActionKind.RefactorInline.value,
   )) ?? [];
+}
+
+async function getCanReplaceContextValue(): Promise<boolean> {
+  return await vscode.commands.executeCommand<boolean>('constantsReplacement._getCanReplaceAtCursorContext');
+}
+
+async function waitForCanReplaceContext(expected: boolean, timeoutMs = 5000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    if ((await getCanReplaceContextValue()) === expected) {
+      return;
+    }
+
+    await delay(50);
+  }
+
+  assert.equal(await getCanReplaceContextValue(), expected);
 }
 
 function findDefinitionRange(document: vscode.TextDocument, symbol: string): vscode.Range | undefined {

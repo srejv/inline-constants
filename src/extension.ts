@@ -8,12 +8,14 @@ import {
 } from './core';
 
 const COMMAND_REPLACE = 'constantsReplacement.replaceAtCursor';
+const COMMAND_GET_TEST_CONTEXT = 'constantsReplacement._getCanReplaceAtCursorContext';
 const CONTEXT_CAN_REPLACE = 'constantsReplacement.canReplaceAtCursor';
 const SUPPORTED_LANGUAGE_IDS = new Set(['c', 'cpp', 'cuda-cpp', 'objective-c', 'objective-cpp']);
 const DOCUMENT_SELECTOR: vscode.DocumentSelector = Array.from(SUPPORTED_LANGUAGE_IDS);
 
-let contextUpdateTimer: NodeJS.Timeout | undefined;
+let contextUpdateTimer: ReturnType<typeof setTimeout> | undefined;
 let contextUpdateVersion = 0;
+let lastCanReplaceAtCursorContext = false;
 
 interface PositionJson {
   line: number;
@@ -116,6 +118,12 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
   );
+
+  if (context.extensionMode === vscode.ExtensionMode.Test) {
+    context.subscriptions.push(
+      vscode.commands.registerCommand(COMMAND_GET_TEST_CONTEXT, () => lastCanReplaceAtCursorContext),
+    );
+  }
 
   scheduleContextUpdate(evaluator);
 }
@@ -378,7 +386,7 @@ function scheduleContextUpdate(evaluator: ReplacementEvaluator): void {
     const editor = vscode.window.activeTextEditor;
     if (!editor || !isSupportedDocument(editor.document)) {
       if (currentVersion === contextUpdateVersion) {
-        await vscode.commands.executeCommand('setContext', CONTEXT_CAN_REPLACE, false);
+        await updateCanReplaceContext(false);
       }
       return;
     }
@@ -391,9 +399,14 @@ function scheduleContextUpdate(evaluator: ReplacementEvaluator): void {
     }
 
     if (currentVersion === contextUpdateVersion) {
-      await vscode.commands.executeCommand('setContext', CONTEXT_CAN_REPLACE, canReplace);
+      await updateCanReplaceContext(canReplace);
     }
   }, 150);
+}
+
+async function updateCanReplaceContext(value: boolean): Promise<void> {
+  lastCanReplaceAtCursorContext = value;
+  await vscode.commands.executeCommand('setContext', CONTEXT_CAN_REPLACE, value);
 }
 
 function extractDefinitionInfo(
