@@ -89,6 +89,46 @@ suite('Constants Replacement Extension', () => {
     assert.match(editor.document.getText(), /return 1\.5f;/);
   });
 
+  test('replaces object-like macro usage', async () => {
+    const editor = await openCppEditor([
+      '#define EMPTY_STATE_PADDING 24',
+      '',
+      'int render() {',
+      '  return EMPTY_STATE_PADDING;',
+      '}',
+    ].join('\n'));
+
+    setCursor(editor, 'EMPTY_STATE_PADDING', 1);
+    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+
+    assert.match(editor.document.getText(), /return 24;/);
+  });
+
+  test('replaces template-qualified constexpr direct initializer usage', async () => {
+    const editor = await openCppEditor([
+      'enum class ColorMode { Dark };',
+      '',
+      'template <ColorMode Mode>',
+      'struct Theme;',
+      '',
+      'template <>',
+      'struct Theme<ColorMode::Dark> {',
+      '  struct Typography {',
+      '    static constexpr float labelSize{18.0f};',
+      '  };',
+      '};',
+      '',
+      'float render() {',
+      '  return Theme<ColorMode::Dark>::Typography::labelSize;',
+      '}',
+    ].join('\n'));
+
+    setCursor(editor, 'labelSize', 1);
+    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+
+    assert.match(editor.document.getText(), /return 18\.0f;/);
+  });
+
   test('replaces function-like macro usage with expanded call-site arguments', async () => {
     const editor = await openCppEditor([
       '#define ADD_ONE(x) ((x) + 1)',
@@ -143,6 +183,44 @@ suite('Constants Replacement Extension', () => {
     ].join('\n'));
 
     setCursor(editor, 'LOG_VALUE', 1);
+    const before = editor.document.getText();
+    const actions = await getReplaceActions(editor);
+
+    assert.equal(actions.length, 0);
+
+    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+    assert.equal(editor.document.getText(), before);
+  });
+
+  test('does not offer replacement for stringizing macros', async () => {
+    const editor = await openCppEditor([
+      '#define TO_TEXT(value) #value',
+      '',
+      'const char* render() {',
+      '  return TO_TEXT(emptyState);',
+      '}',
+    ].join('\n'));
+
+    setCursor(editor, 'TO_TEXT', 1);
+    const before = editor.document.getText();
+    const actions = await getReplaceActions(editor);
+
+    assert.equal(actions.length, 0);
+
+    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+    assert.equal(editor.document.getText(), before);
+  });
+
+  test('does not offer replacement for token-pasting macros', async () => {
+    const editor = await openCppEditor([
+      '#define MAKE_NAME(prefix, suffix) prefix ## suffix',
+      '',
+      'int render() {',
+      '  return MAKE_NAME(emptyState, FontSize);',
+      '}',
+    ].join('\n'));
+
+    setCursor(editor, 'MAKE_NAME', 1);
     const before = editor.document.getText();
     const actions = await getReplaceActions(editor);
 
