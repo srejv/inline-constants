@@ -2,6 +2,8 @@ import * as assert from 'node:assert/strict';
 
 import * as vscode from 'vscode';
 
+const SUPPORTED_LANGUAGE_IDS = ['c', 'cpp', 'cuda-cpp', 'objective-c', 'objective-cpp'] as const;
+
 suite('Constants Replacement Extension', () => {
   const disposables: vscode.Disposable[] = [];
 
@@ -11,7 +13,7 @@ suite('Constants Replacement Extension', () => {
     await extension.activate();
 
     disposables.push(
-      vscode.languages.registerDefinitionProvider({ language: 'cpp' }, {
+      vscode.languages.registerDefinitionProvider(SUPPORTED_LANGUAGE_IDS.map((language) => ({ language })), {
         provideDefinition(document, position) {
           const symbolRange = document.getWordRangeAtPosition(position, /[A-Za-z_][A-Za-z0-9_]*/);
           if (!symbolRange) {
@@ -42,7 +44,7 @@ suite('Constants Replacement Extension', () => {
   });
 
   test('replaces scope-qualified constexpr usage', async () => {
-    const editor = await openCppEditor([
+    const editor = await openEditor([
       'namespace UiStyle {',
       'namespace Typography {',
       'constexpr float emptyStateFontSize = 20.0f;',
@@ -61,7 +63,7 @@ suite('Constants Replacement Extension', () => {
   });
 
   test('replaces const brace initializer usage', async () => {
-    const editor = await openCppEditor([
+    const editor = await openEditor([
       'const int basePadding{24};',
       '',
       'int render() {',
@@ -76,7 +78,7 @@ suite('Constants Replacement Extension', () => {
   });
 
   test('replaces const parenthesized initializer usage', async () => {
-    const editor = await openCppEditor([
+    const editor = await openEditor([
       'const float scaleFactor(1.5f);',
       '',
       'float render() {',
@@ -91,7 +93,7 @@ suite('Constants Replacement Extension', () => {
   });
 
   test('replaces object-like macro usage', async () => {
-    const editor = await openCppEditor([
+    const editor = await openEditor([
       '#define EMPTY_STATE_PADDING 24',
       '',
       'int render() {',
@@ -106,7 +108,7 @@ suite('Constants Replacement Extension', () => {
   });
 
   test('replaces multi-line object-like macro usage', async () => {
-    const editor = await openCppEditor([
+    const editor = await openEditor([
       '#define EMPTY_STATE_SCALE \\',
       '  (18.0f + 2.0f)',
       '',
@@ -122,7 +124,7 @@ suite('Constants Replacement Extension', () => {
   });
 
   test('replaces multi-line function-like macro usage', async () => {
-    const editor = await openCppEditor([
+    const editor = await openEditor([
       '#define MIX_VALUES(x, y) \\',
       '  ((x) + \\',
       '  (y))',
@@ -139,7 +141,7 @@ suite('Constants Replacement Extension', () => {
   });
 
   test('replaces array-style constexpr usage with its initializer', async () => {
-    const editor = await openCppEditor([
+    const editor = await openEditor([
       'constexpr int values[] = {1, 2, 3};',
       '',
       'auto render() {',
@@ -154,7 +156,7 @@ suite('Constants Replacement Extension', () => {
   });
 
   test('replaces template-qualified constexpr direct initializer usage', async () => {
-    const editor = await openCppEditor([
+    const editor = await openEditor([
       'enum class ColorMode { Dark };',
       '',
       'template <ColorMode Mode>',
@@ -179,10 +181,10 @@ suite('Constants Replacement Extension', () => {
   });
 
   test('replaces cross-file constexpr usage resolved through the definition provider', async () => {
-    const definitionEditor = await openCppEditor([
+    const definitionEditor = await openEditor([
       'constexpr int sharedSpacing = 28;',
     ].join('\n'));
-    const usageEditor = await openCppEditor([
+    const usageEditor = await openEditor([
       'int render() {',
       '  return sharedSpacing;',
       '}',
@@ -196,7 +198,7 @@ suite('Constants Replacement Extension', () => {
   });
 
   test('replaces nested template-qualified constexpr direct initializer usage', async () => {
-    const editor = await openCppEditor([
+    const editor = await openEditor([
       'enum class ColorMode { Dark };',
       '',
       'template <ColorMode Mode>',
@@ -221,7 +223,7 @@ suite('Constants Replacement Extension', () => {
   });
 
   test('replaces function-like macro usage with expanded call-site arguments', async () => {
-    const editor = await openCppEditor([
+    const editor = await openEditor([
       '#define ADD_ONE(x) ((x) + 1)',
       '',
       'int render(int alpha, int beta) {',
@@ -236,7 +238,7 @@ suite('Constants Replacement Extension', () => {
   });
 
   test('does not rewrite the original definition', async () => {
-    const editor = await openCppEditor([
+    const editor = await openEditor([
       'constexpr float emptyStateFontSize = 20.0f;',
       'float render() {',
       '  return emptyStateFontSize;',
@@ -251,7 +253,7 @@ suite('Constants Replacement Extension', () => {
   });
 
   test('does not offer replacement code actions on the definition itself', async () => {
-    const editor = await openCppEditor([
+    const editor = await openEditor([
       'constexpr float emptyStateFontSize = 20.0f;',
       'float render() {',
       '  return emptyStateFontSize;',
@@ -265,7 +267,7 @@ suite('Constants Replacement Extension', () => {
   });
 
   test('does not offer replacement for unsupported variadic macros', async () => {
-    const editor = await openCppEditor([
+    const editor = await openEditor([
       '#define LOG_VALUE(fmt, ...) fmt',
       '',
       'const char* render(int value) {',
@@ -284,7 +286,7 @@ suite('Constants Replacement Extension', () => {
   });
 
   test('does not offer replacement for stringizing macros', async () => {
-    const editor = await openCppEditor([
+    const editor = await openEditor([
       '#define TO_TEXT(value) #value',
       '',
       'const char* render() {',
@@ -303,7 +305,7 @@ suite('Constants Replacement Extension', () => {
   });
 
   test('does not offer replacement for token-pasting macros', async () => {
-    const editor = await openCppEditor([
+    const editor = await openEditor([
       '#define MAKE_NAME(prefix, suffix) prefix ## suffix',
       '',
       'int render() {',
@@ -324,7 +326,7 @@ suite('Constants Replacement Extension', () => {
   test('provides a hover replacement action when hoverLink is enabled', async () => {
     await setClickBehavior('hoverLink');
 
-    const editor = await openCppEditor([
+    const editor = await openEditor([
       'constexpr float emptyStateFontSize = 20.0f;',
       'float render() {',
       '  return emptyStateFontSize;',
@@ -347,7 +349,7 @@ suite('Constants Replacement Extension', () => {
   test('provides an editor link only for usages when editorLink is enabled', async () => {
     await setClickBehavior('editorLink');
 
-    const editor = await openCppEditor([
+    const editor = await openEditor([
       'constexpr int emptyStatePadding = 24;',
       'int render() {',
       '  return emptyStatePadding;',
@@ -364,12 +366,105 @@ suite('Constants Replacement Extension', () => {
     assert.equal(getDocumentTextForRange(editor.document, resolvedLinks[0].range), 'emptyStatePadding');
     assert.match(resolvedLinks[0].target?.toString() ?? '', /^command:constantsReplacement\.replaceAtCursor\?/);
   });
+
+  test('registers the replace command', async () => {
+    const commands = await vscode.commands.getCommands(true);
+    assert.ok(commands.includes('constantsReplacement.replaceAtCursor'));
+  });
+
+  test('offers a replace action on usage and not on whitespace', async () => {
+    const editor = await openEditor([
+      'constexpr int emptyStatePadding = 24;',
+      'int render() {',
+      '  return emptyStatePadding;',
+      '}',
+    ].join('\n'));
+
+    setCursor(editor, 'emptyStatePadding', 1);
+    const usageActions = await getReplaceActions(editor);
+    assert.equal(usageActions.length, 1);
+
+    const whitespacePosition = new vscode.Position(2, 2);
+    editor.selection = new vscode.Selection(whitespacePosition, whitespacePosition);
+    const whitespaceActions = await getReplaceActions(editor);
+    assert.equal(whitespaceActions.length, 0);
+  });
+
+  test('does not apply replacement in unsupported languages', async function () {
+    this.timeout(10000);
+
+    const editor = await openEditor([
+      'const emptyStatePadding = 24;',
+      'function render() {',
+      '  return emptyStatePadding;',
+      '}',
+    ].join('\n'), 'javascript');
+
+    setCursor(editor, 'emptyStatePadding', 1);
+    const before = editor.document.getText();
+
+    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+
+    assert.equal(editor.document.getText(), before);
+  });
+
+  for (const languageId of ['c', 'cuda-cpp', 'objective-c', 'objective-cpp'] as const) {
+    test(`replaces const usage in ${languageId}`, async () => {
+      const editor = await openEditor([
+        'const int emptyStatePadding = 24;',
+        'int render(void) {',
+        '  return emptyStatePadding;',
+        '}',
+      ].join('\n'), languageId);
+
+      setCursor(editor, 'emptyStatePadding', 1);
+      await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+
+      assert.match(editor.document.getText(), /return 24;/);
+    });
+  }
+
+  test('does not offer replacement for const declarations without an initializer', async () => {
+    const editor = await openEditor([
+      'const int emptyStatePadding;',
+      'int render() {',
+      '  return emptyStatePadding;',
+      '}',
+    ].join('\n'));
+
+    setCursor(editor, 'emptyStatePadding', 1);
+    const before = editor.document.getText();
+    const actions = await getReplaceActions(editor);
+
+    assert.equal(actions.length, 0);
+
+    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+    assert.equal(editor.document.getText(), before);
+  });
+
+  test('does not offer replacement for malformed multi-value direct initializers', async () => {
+    const editor = await openEditor([
+      'constexpr float emptyStatePadding{20.0f, 24.0f};',
+      'float render() {',
+      '  return emptyStatePadding;',
+      '}',
+    ].join('\n'));
+
+    setCursor(editor, 'emptyStatePadding', 1);
+    const before = editor.document.getText();
+    const actions = await getReplaceActions(editor);
+
+    assert.equal(actions.length, 0);
+
+    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+    assert.equal(editor.document.getText(), before);
+  });
 });
 
-async function openCppEditor(content: string): Promise<vscode.TextEditor> {
+async function openEditor(content: string, language = 'cpp'): Promise<vscode.TextEditor> {
   const document = await vscode.workspace.openTextDocument({
     content,
-    language: 'cpp',
+    language,
   });
 
   return vscode.window.showTextDocument(document);
@@ -437,7 +532,10 @@ function findDefinitionLocation(
   }
 
   for (const document of vscode.workspace.textDocuments) {
-    if (document.uri.toString() === sourceDocument.uri.toString() || document.languageId !== 'cpp') {
+    if (
+      document.uri.toString() === sourceDocument.uri.toString() ||
+      !SUPPORTED_LANGUAGE_IDS.includes(document.languageId as (typeof SUPPORTED_LANGUAGE_IDS)[number])
+    ) {
       continue;
     }
 
