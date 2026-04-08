@@ -4,6 +4,7 @@
   "description": "Inline C/C++ constant usages from defines, const, and constexpr declarations.",
   "version": "0.0.1",
   "publisher": "localdev",
+  "license": "MIT",
   "engines": {
     "vscode": "^1.96.0"
   },
