@@ -1,5 +1,12 @@
 import * as vscode from 'vscode';
 
+import {
+  expandFunctionMacroBody,
+  extendQualifiedConstUsageRangeOffsets,
+  normalizeReplacementExpression,
+  parseMacroInvocationText,
+} from './core';
+
 const COMMAND_REPLACE = 'constantsReplacement.replaceAtCursor';
 const CONTEXT_CAN_REPLACE = 'constantsReplacement.canReplaceAtCursor';
 const SUPPORTED_LANGUAGE_IDS = new Set(['c', 'cpp', 'cuda-cpp', 'objective-c', 'objective-cpp']);
@@ -563,24 +570,14 @@ function parseMacroInvocation(
   symbolRange: vscode.Range,
 ): MacroInvocation | undefined {
   const text = document.getText();
-  let cursor = skipWhitespace(text, document.offsetAt(symbolRange.end));
-  if (cursor >= text.length || text[cursor] !== '(') {
+  const invocation = parseMacroInvocationText(text, document.offsetAt(symbolRange.end));
+  if (!invocation) {
     return undefined;
   }
-
-  const closingIndex = findMatchingCharacter(text, cursor, '(', ')');
-  if (closingIndex < 0) {
-    return undefined;
-  }
-
-  const argumentsText = text.slice(cursor + 1, closingIndex);
-  const parsedArguments = splitTopLevel(argumentsText, ',')
-    .map((argument) => argument.trim())
-    .filter((argument, index, all) => !(all.length === 1 && index === 0 && argument.length === 0));
 
   return {
-    arguments: parsedArguments,
-    range: new vscode.Range(symbolRange.start, document.positionAt(closingIndex + 1)),
+    arguments: invocation.arguments,
+    range: new vscode.Range(symbolRange.start, document.positionAt(invocation.rangeEndOffset)),
   };
 }
 
@@ -588,32 +585,15 @@ function expandFunctionMacro(
   definitionInfo: MacroFunctionDefinitionInfo,
   argumentsAtCallSite: string[],
 ): string {
-  let expanded = definitionInfo.body;
-
-  for (let index = 0; index < definitionInfo.parameters.length; index += 1) {
-    const parameter = definitionInfo.parameters[index];
-    const argument = wrapMacroArgument(argumentsAtCallSite[index] ?? '');
-    expanded = replaceWholeWord(expanded, parameter, argument);
-  }
-
-  return expanded.trim();
+  return expandFunctionMacroBody(
+    definitionInfo.body,
+    definitionInfo.parameters,
+    argumentsAtCallSite,
+  );
 }
 
 function normalizeReplacementText(rawText: string): string | undefined {
-  const trimmed = rawText.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-
-  if (!getParenthesizeExpressions() || !hasTopLevelOperator(trimmed)) {
-    return trimmed;
-  }
-
-  if (trimmed.startsWith('{') || isWrappedByMatchingPair(trimmed, '(', ')')) {
-    return trimmed;
-  }
-
-  return `(${trimmed})`;
+  return normalizeReplacementExpression(rawText, getParenthesizeExpressions());
 }
 
 async function getDefinitionLocation(
@@ -710,32 +690,16 @@ function extendQualifiedConstUsageRange(
   document: vscode.TextDocument,
   symbolRange: vscode.Range,
 ): vscode.Range {
-  const text = document.getText();
-  let startOffset = document.offsetAt(symbolRange.start);
+  const offsets = extendQualifiedConstUsageRangeOffsets(
+    document.getText(),
+    document.offsetAt(symbolRange.start),
+    document.offsetAt(symbolRange.end),
+  );
 
-  while (startOffset > 0) {
-    const beforeOperatorOffset = skipWhitespaceBackward(text, startOffset);
-    if (
-      beforeOperatorOffset < 2 ||
-      text[beforeOperatorOffset - 2] !== ':' ||
-      text[beforeOperatorOffset - 1] !== ':'
-    ) {
-      break;
-    }
-
-    const segmentEndOffset = skipWhitespaceBackward(text, beforeOperatorOffset - 2);
-    const segmentStartOffset = findQualifiedSegmentStart(text, segmentEndOffset);
-    if (segmentStartOffset === undefined) {
-      if (beforeOperatorOffset === 2) {
-        startOffset = 0;
-      }
-      break;
-    }
-
-    startOffset = segmentStartOffset;
-  }
-
-  return new vscode.Range(document.positionAt(startOffset), symbolRange.end);
+  return new vscode.Range(
+    document.positionAt(offsets.startOffset),
+    document.positionAt(offsets.endOffset),
+  );
 }
 
 function findDeclarationStartLine(document: vscode.TextDocument, lineNumber: number): number {
