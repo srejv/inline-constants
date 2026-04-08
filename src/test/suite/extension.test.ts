@@ -104,6 +104,54 @@ suite('Constants Replacement Extension', () => {
     assert.match(editor.document.getText(), /return 24;/);
   });
 
+  test('replaces multi-line object-like macro usage', async () => {
+    const editor = await openCppEditor([
+      '#define EMPTY_STATE_SCALE \\',
+      '  (18.0f + 2.0f)',
+      '',
+      'float render() {',
+      '  return EMPTY_STATE_SCALE;',
+      '}',
+    ].join('\n'));
+
+    setCursor(editor, 'EMPTY_STATE_SCALE', 1);
+    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+
+    assert.match(editor.document.getText(), /return \(18\.0f \+ 2\.0f\);/);
+  });
+
+  test('replaces multi-line function-like macro usage', async () => {
+    const editor = await openCppEditor([
+      '#define MIX_VALUES(x, y) \\',
+      '  ((x) + \\',
+      '  (y))',
+      '',
+      'int render(int left, int right) {',
+      '  return MIX_VALUES(left + 1, right);',
+      '}',
+    ].join('\n'));
+
+    setCursor(editor, 'MIX_VALUES', 1);
+    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+
+    assert.match(editor.document.getText(), /return \(\(\(left \+ 1\)\) \+\s+\(\(right\)\)\);/);
+  });
+
+  test('replaces array-style constexpr usage with its initializer', async () => {
+    const editor = await openCppEditor([
+      'constexpr int values[] = {1, 2, 3};',
+      '',
+      'auto render() {',
+      '  return values;',
+      '}',
+    ].join('\n'));
+
+    setCursor(editor, 'values', 1);
+    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+
+    assert.match(editor.document.getText(), /return \{1, 2, 3\};/);
+  });
+
   test('replaces template-qualified constexpr direct initializer usage', async () => {
     const editor = await openCppEditor([
       'enum class ColorMode { Dark };',
@@ -127,6 +175,31 @@ suite('Constants Replacement Extension', () => {
     await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
 
     assert.match(editor.document.getText(), /return 18\.0f;/);
+  });
+
+  test('replaces nested template-qualified constexpr direct initializer usage', async () => {
+    const editor = await openCppEditor([
+      'enum class ColorMode { Dark };',
+      '',
+      'template <ColorMode Mode>',
+      'struct Palette {};',
+      '',
+      'template <typename TPalette, int Variant>',
+      'struct Theme {',
+      '  struct Typography {',
+      '    static constexpr float labelSize(21.0f);',
+      '  };',
+      '};',
+      '',
+      'float render() {',
+      '  return Theme<Palette<ColorMode::Dark>, 4>::Typography::labelSize;',
+      '}',
+    ].join('\n'));
+
+    setCursor(editor, 'labelSize', 1);
+    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+
+    assert.match(editor.document.getText(), /return 21\.0f;/);
   });
 
   test('replaces function-like macro usage with expanded call-site arguments', async () => {
@@ -280,7 +353,7 @@ function findDefinitionRange(document: vscode.TextDocument, symbol: string): vsc
     }
 
     const constMatch = line.match(
-      new RegExp(`\\b(?:constexpr|const)\\b.*?\\b${escapeRegExp(symbol)}\\b\\s*(?:=|\\{|\\()`),
+      new RegExp(`\\b(?:constexpr|const)\\b.*?\\b${escapeRegExp(symbol)}\\b(?:\\s*\\[[^\\]]*\\])*\\s*(?:=|\\{|\\()`),
     );
     if (constMatch) {
       const startCharacter = line.indexOf(symbol);

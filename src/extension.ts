@@ -657,7 +657,7 @@ function collectLocalLinkCandidates(document: vscode.TextDocument): LocalLinkCan
     }
 
     const constMatch = lineText.match(
-      /\b(?:constexpr|const)\b.*?\b([A-Za-z_][A-Za-z0-9_]*)\b\s*(?:=|\{|\()/,
+      /\b(?:constexpr|const)\b.*?\b([A-Za-z_][A-Za-z0-9_]*)\b(?:\s*\[[^\]]*\])*\s*(?:=|\{|\()/,
     );
     if (!constMatch) {
       continue;
