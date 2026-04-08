@@ -19,12 +19,12 @@ suite('Constants Replacement Extension', () => {
           }
 
           const symbol = document.getText(symbolRange);
-          const definitionRange = findDefinitionRange(document, symbol);
-          if (!definitionRange) {
+          const definitionLocation = findDefinitionLocation(document, symbol);
+          if (!definitionLocation) {
             return undefined;
           }
 
-          return new vscode.Location(document.uri, definitionRange);
+          return definitionLocation;
         },
       }),
     );
@@ -37,6 +37,7 @@ suite('Constants Replacement Extension', () => {
   });
 
   teardown(async () => {
+    await resetExtensionConfiguration();
     await closeAllEditors();
   });
 
@@ -177,6 +178,23 @@ suite('Constants Replacement Extension', () => {
     assert.match(editor.document.getText(), /return 18\.0f;/);
   });
 
+  test('replaces cross-file constexpr usage resolved through the definition provider', async () => {
+    const definitionEditor = await openCppEditor([
+      'constexpr int sharedSpacing = 28;',
+    ].join('\n'));
+    const usageEditor = await openCppEditor([
+      'int render() {',
+      '  return sharedSpacing;',
+      '}',
+    ].join('\n'));
+
+    setCursor(usageEditor, 'sharedSpacing');
+    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+
+    assert.match(usageEditor.document.getText(), /return 28;/);
+    assert.match(definitionEditor.document.getText(), /sharedSpacing = 28;/);
+  });
+
   test('replaces nested template-qualified constexpr direct initializer usage', async () => {
     const editor = await openCppEditor([
       'enum class ColorMode { Dark };',
@@ -302,6 +320,50 @@ suite('Constants Replacement Extension', () => {
     await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
     assert.equal(editor.document.getText(), before);
   });
+
+  test('provides a hover replacement action when hoverLink is enabled', async () => {
+    await setClickBehavior('hoverLink');
+
+    const editor = await openCppEditor([
+      'constexpr float emptyStateFontSize = 20.0f;',
+      'float render() {',
+      '  return emptyStateFontSize;',
+      '}',
+    ].join('\n'));
+
+    const position = setCursor(editor, 'emptyStateFontSize', 1);
+    const hovers = await vscode.commands.executeCommand<vscode.Hover[]>(
+      'vscode.executeHoverProvider',
+      editor.document.uri,
+      position,
+    );
+    const hoverText = flattenHoverContents(hovers ?? []);
+
+    assert.match(hoverText, /Replace emptyStateFontSize with value/);
+    assert.match(hoverText, /Inlines to:/);
+    assert.match(hoverText, /20\.0f/);
+  });
+
+  test('provides an editor link only for usages when editorLink is enabled', async () => {
+    await setClickBehavior('editorLink');
+
+    const editor = await openCppEditor([
+      'constexpr int emptyStatePadding = 24;',
+      'int render() {',
+      '  return emptyStatePadding;',
+      '}',
+    ].join('\n'));
+
+    const links = await vscode.commands.executeCommand<vscode.DocumentLink[]>(
+      'vscode.executeLinkProvider',
+      editor.document.uri,
+    );
+    const resolvedLinks = links ?? [];
+
+    assert.equal(resolvedLinks.length, 1);
+    assert.equal(getDocumentTextForRange(editor.document, resolvedLinks[0].range), 'emptyStatePadding');
+    assert.match(resolvedLinks[0].target?.toString() ?? '', /^command:constantsReplacement\.replaceAtCursor\?/);
+  });
 });
 
 async function openCppEditor(content: string): Promise<vscode.TextEditor> {
@@ -313,7 +375,7 @@ async function openCppEditor(content: string): Promise<vscode.TextEditor> {
   return vscode.window.showTextDocument(document);
 }
 
-function setCursor(editor: vscode.TextEditor, symbol: string, occurrence = 0): void {
+function setCursor(editor: vscode.TextEditor, symbol: string, occurrence = 0): vscode.Position {
   const text = editor.document.getText();
   let searchFrom = 0;
   let symbolOffset = -1;
@@ -328,6 +390,7 @@ function setCursor(editor: vscode.TextEditor, symbol: string, occurrence = 0): v
 
   const position = editor.document.positionAt(symbolOffset + Math.floor(symbol.length / 2));
   editor.selection = new vscode.Selection(position, position);
+  return position;
 }
 
 async function getReplaceActions(
@@ -362,6 +425,66 @@ function findDefinitionRange(document: vscode.TextDocument, symbol: string): vsc
   }
 
   return undefined;
+}
+
+function findDefinitionLocation(
+  sourceDocument: vscode.TextDocument,
+  symbol: string,
+): vscode.Location | undefined {
+  const sameDocumentRange = findDefinitionRange(sourceDocument, symbol);
+  if (sameDocumentRange) {
+    return new vscode.Location(sourceDocument.uri, sameDocumentRange);
+  }
+
+  for (const document of vscode.workspace.textDocuments) {
+    if (document.uri.toString() === sourceDocument.uri.toString() || document.languageId !== 'cpp') {
+      continue;
+    }
+
+    const definitionRange = findDefinitionRange(document, symbol);
+    if (definitionRange) {
+      return new vscode.Location(document.uri, definitionRange);
+    }
+  }
+
+  return undefined;
+}
+
+async function setClickBehavior(value: 'disabled' | 'editorLink' | 'hoverLink'): Promise<void> {
+  await vscode.workspace
+    .getConfiguration('constantsReplacement')
+    .update('clickBehavior', value, vscode.ConfigurationTarget.Global);
+}
+
+async function resetExtensionConfiguration(): Promise<void> {
+  const configuration = vscode.workspace.getConfiguration('constantsReplacement');
+  await configuration.update('clickBehavior', undefined, vscode.ConfigurationTarget.Global);
+  await configuration.update('parenthesizeExpressions', undefined, vscode.ConfigurationTarget.Global);
+}
+
+function flattenHoverContents(hovers: readonly vscode.Hover[]): string {
+  return hovers
+    .flatMap((hover) => hover.contents)
+    .map((content) => {
+      if (content instanceof vscode.MarkdownString) {
+        return content.value;
+      }
+
+      if (typeof content === 'string') {
+        return content;
+      }
+
+      if ('value' in content) {
+        return content.value;
+      }
+
+      return '';
+    })
+    .join('\n');
+}
+
+function getDocumentTextForRange(document: vscode.TextDocument, range: vscode.Range): string {
+  return document.getText(range);
 }
 
 function escapeRegExp(text: string): string {
