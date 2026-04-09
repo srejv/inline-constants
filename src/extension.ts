@@ -70,11 +70,6 @@ interface MacroInvocation {
   range: vscode.Range;
 }
 
-interface LocalLinkCandidate {
-  definitionRange: vscode.Range;
-  name: string;
-}
-
 export function activate(context: vscode.ExtensionContext): void {
   const evaluator = new ReplacementEvaluator();
 
@@ -91,10 +86,6 @@ export function activate(context: vscode.ExtensionContext): void {
           vscode.CodeActionKind.QuickFix,
         ],
       },
-    ),
-    vscode.languages.registerDocumentLinkProvider(
-      DOCUMENT_SELECTOR,
-      new ConstantLinkProvider(),
     ),
     vscode.languages.registerHoverProvider(
       DOCUMENT_SELECTOR,
@@ -161,47 +152,6 @@ class ConstantCodeActionProvider implements vscode.CodeActionProvider {
     action.isPreferred = true;
 
     return [action];
-  }
-}
-
-class ConstantLinkProvider implements vscode.DocumentLinkProvider {
-  public provideDocumentLinks(document: vscode.TextDocument): vscode.DocumentLink[] {
-    if (!isSupportedDocument(document) || getClickBehavior() !== 'editorLink') {
-      return [];
-    }
-
-    const candidates = collectLocalLinkCandidates(document);
-    if (candidates.length === 0) {
-      return [];
-    }
-
-    const links: vscode.DocumentLink[] = [];
-    const text = document.getText();
-
-    for (const candidate of candidates) {
-      const pattern = new RegExp(`\\b${escapeRegExp(candidate.name)}\\b`, 'g');
-      let match: RegExpExecArray | null;
-
-      while ((match = pattern.exec(text)) !== null) {
-        const start = document.positionAt(match.index);
-        const end = document.positionAt(match.index + candidate.name.length);
-        const range = new vscode.Range(start, end);
-
-        if (range.isEqual(candidate.definitionRange)) {
-          continue;
-        }
-
-        links.push(
-          new vscode.DocumentLink(range, buildCommandUri(document.uri, start)),
-        );
-      }
-    }
-
-    for (const link of links) {
-      link.tooltip = 'Inline constant';
-    }
-
-    return links;
   }
 }
 
@@ -645,51 +595,6 @@ function normalizeLocation(
   }
 
   return undefined;
-}
-
-function collectLocalLinkCandidates(document: vscode.TextDocument): LocalLinkCandidate[] {
-  const candidates = new Map<string, LocalLinkCandidate>();
-
-  for (let lineNumber = 0; lineNumber < document.lineCount; lineNumber += 1) {
-    const lineText = document.lineAt(lineNumber).text;
-
-    const macroMatch = lineText.match(/^\s*#\s*define\s+([A-Za-z_][A-Za-z0-9_]*)(\([^)]*\))?/);
-    if (macroMatch) {
-      const name = macroMatch[1];
-      const startCharacter = lineText.indexOf(name);
-      if (startCharacter >= 0 && !candidates.has(name)) {
-        candidates.set(name, {
-          definitionRange: new vscode.Range(
-            new vscode.Position(lineNumber, startCharacter),
-            new vscode.Position(lineNumber, startCharacter + name.length),
-          ),
-          name,
-        });
-      }
-      continue;
-    }
-
-    const constMatch = lineText.match(
-      /\b(?:constexpr|const)\b.*?\b([A-Za-z_][A-Za-z0-9_]*)\b(?:\s*\[[^\]]*\])*\s*(?:=|\{|\()/,
-    );
-    if (!constMatch) {
-      continue;
-    }
-
-    const name = constMatch[1];
-    const startCharacter = lineText.indexOf(name);
-    if (startCharacter >= 0 && !candidates.has(name)) {
-      candidates.set(name, {
-        definitionRange: new vscode.Range(
-          new vscode.Position(lineNumber, startCharacter),
-          new vscode.Position(lineNumber, startCharacter + name.length),
-        ),
-        name,
-      });
-    }
-  }
-
-  return [...candidates.values()];
 }
 
 function getIdentifierRange(
@@ -1339,12 +1244,12 @@ function buildCommandUri(documentUri: vscode.Uri, position: vscode.Position): vs
   return vscode.Uri.parse(`command:${COMMAND_REPLACE}?${payload}`);
 }
 
-function getClickBehavior(): 'disabled' | 'editorLink' | 'hoverLink' {
+function getClickBehavior(): 'disabled' | 'hoverLink' {
   const configuredValue = vscode.workspace
     .getConfiguration('inlineConstants')
     .get<string>('clickBehavior', 'disabled');
 
-  if (configuredValue === 'editorLink' || configuredValue === 'hoverLink') {
+  if (configuredValue === 'hoverLink') {
     return configuredValue;
   }
 

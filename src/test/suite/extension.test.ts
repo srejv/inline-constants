@@ -349,27 +349,6 @@ suite('Inline Constants Extension', () => {
     assert.match(hoverText, /20\.0f/);
   });
 
-  test('provides an editor link only for usages when editorLink is enabled', async () => {
-    await setClickBehavior('editorLink');
-
-    const editor = await openEditor([
-      'constexpr int emptyStatePadding = 24;',
-      'int render() {',
-      '  return emptyStatePadding;',
-      '}',
-    ].join('\n'));
-
-    const links = await vscode.commands.executeCommand<vscode.DocumentLink[]>(
-      'vscode.executeLinkProvider',
-      editor.document.uri,
-    );
-    const resolvedLinks = links ?? [];
-
-    assert.equal(resolvedLinks.length, 1);
-    assert.equal(getDocumentTextForRange(editor.document, resolvedLinks[0].range), 'emptyStatePadding');
-    assert.match(resolvedLinks[0].target?.toString() ?? '', /^command:inlineConstants\.inlineAtCursor\?/);
-  });
-
   test('registers the replace command', async () => {
     const commands = await vscode.commands.getCommands(true);
     assert.ok(commands.includes('inlineConstants.inlineAtCursor'));
@@ -604,7 +583,7 @@ function findDefinitionLocation(
   return undefined;
 }
 
-async function setClickBehavior(value: 'disabled' | 'editorLink' | 'hoverLink'): Promise<void> {
+async function setClickBehavior(value: 'disabled' | 'hoverLink'): Promise<void> {
   await vscode.workspace
     .getConfiguration('inlineConstants')
     .update('clickBehavior', value, vscode.ConfigurationTarget.Global);
@@ -635,10 +614,6 @@ function flattenHoverContents(hovers: readonly vscode.Hover[]): string {
       return '';
     })
     .join('\n');
-}
-
-function getDocumentTextForRange(document: vscode.TextDocument, range: vscode.Range): string {
-  return document.getText(range);
 }
 
 function escapeRegExp(text: string): string {
