@@ -4,12 +4,17 @@
   "description": "Inline C/C++ macros, const, and constexpr usages with their resolved values.",
   "version": "0.0.1",
   "publisher": "srejv",
+  "author": "Oscar Dragén",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/srejv/inline-constants.git"
+  },
   "license": "MIT",
   "engines": {
     "vscode": "^1.96.0"
   },
   "categories": [
-    "Other"
+    "Programming Languages"
   ],
   "activationEvents": [
     "onLanguage:c",
@@ -70,5 +75,26 @@
     "@vscode/test-electron": "^2.5.2",
     "mocha": "^11.1.0",
     "typescript": "^5.8.3"
+  },
+  "icon": "images/icon.png",
+  "homepage": "https://github.com/srejv/inline-constants#readme",
+  "bugs": {
+    "url": "https://github.com/srejv/inline-constants/issues"
+  },
+  "keywords": [
+    "c",
+    "cpp",
+    "c++",
+    "constexpr",
+    "const",
+    "macro",
+    "refactoring",
+    "inline",
+    "objective-c",
+    "cuda"
+  ],
+  "galleryBanner": {
+    "color": "#1f2937",
+    "theme": "dark"
   }
 }
