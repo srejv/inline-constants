@@ -7,9 +7,9 @@ import {
   parseMacroInvocationText,
 } from './core';
 
-const COMMAND_REPLACE = 'constantsReplacement.replaceAtCursor';
-const COMMAND_GET_TEST_CONTEXT = 'constantsReplacement._getCanReplaceAtCursorContext';
-const CONTEXT_CAN_REPLACE = 'constantsReplacement.canReplaceAtCursor';
+const COMMAND_REPLACE = 'inlineConstants.inlineAtCursor';
+const COMMAND_GET_TEST_CONTEXT = 'inlineConstants._getCanInlineAtCursorContext';
+const CONTEXT_CAN_REPLACE = 'inlineConstants.canInlineAtCursor';
 const SUPPORTED_LANGUAGE_IDS = new Set(['c', 'cpp', 'cuda-cpp', 'objective-c', 'objective-cpp']);
 const DOCUMENT_SELECTOR: vscode.DocumentSelector = Array.from(SUPPORTED_LANGUAGE_IDS);
 
@@ -113,7 +113,7 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
     vscode.workspace.onDidChangeConfiguration((event) => {
-      if (event.affectsConfiguration('constantsReplacement')) {
+      if (event.affectsConfiguration('inlineConstants')) {
         scheduleContextUpdate(evaluator);
       }
     }),
@@ -142,7 +142,7 @@ class ConstantCodeActionProvider implements vscode.CodeActionProvider {
     }
 
     const action = new vscode.CodeAction(
-      `Replace ${plan.displayName} with value`,
+      `Inline ${plan.displayName}`,
       vscode.CodeActionKind.RefactorInline,
     );
     action.command = {
@@ -156,7 +156,7 @@ class ConstantCodeActionProvider implements vscode.CodeActionProvider {
         } satisfies ReplaceCommandArgs,
       ],
       command: COMMAND_REPLACE,
-      title: 'Replace Constant With Value',
+      title: 'Inline Constant',
     };
     action.isPreferred = true;
 
@@ -198,7 +198,7 @@ class ConstantLinkProvider implements vscode.DocumentLinkProvider {
     }
 
     for (const link of links) {
-      link.tooltip = 'Replace constant with value';
+      link.tooltip = 'Inline constant';
     }
 
     return links;
@@ -223,7 +223,7 @@ class ConstantHoverProvider implements vscode.HoverProvider {
 
     const commandUri = buildCommandUri(document.uri, position);
     const link = new vscode.MarkdownString(
-      `[Replace ${plan.displayName} with value](${commandUri})`,
+      `[Inline ${plan.displayName}](${commandUri})`,
       true,
     );
     link.isTrusted = { enabledCommands: [COMMAND_REPLACE] };
@@ -347,7 +347,7 @@ async function executeReplaceCommand(
 
   if (!plan) {
     void vscode.window.showInformationMessage(
-      'No replaceable constant usage was found at the current cursor.',
+      'No inlineable constant usage was found at the current cursor.',
     );
     return;
   }
@@ -357,7 +357,7 @@ async function executeReplaceCommand(
   });
 
   if (!didApply) {
-    void vscode.window.showErrorMessage('Constants Replacement could not apply the edit.');
+    void vscode.window.showErrorMessage('Inline Constants could not apply the edit.');
   }
 }
 
@@ -1341,7 +1341,7 @@ function buildCommandUri(documentUri: vscode.Uri, position: vscode.Position): vs
 
 function getClickBehavior(): 'disabled' | 'editorLink' | 'hoverLink' {
   const configuredValue = vscode.workspace
-    .getConfiguration('constantsReplacement')
+    .getConfiguration('inlineConstants')
     .get<string>('clickBehavior', 'disabled');
 
   if (configuredValue === 'editorLink' || configuredValue === 'hoverLink') {
@@ -1353,7 +1353,7 @@ function getClickBehavior(): 'disabled' | 'editorLink' | 'hoverLink' {
 
 function getParenthesizeExpressions(): boolean {
   return vscode.workspace
-    .getConfiguration('constantsReplacement')
+    .getConfiguration('inlineConstants')
     .get<boolean>('parenthesizeExpressions', true);
 }
 

@@ -5,11 +5,11 @@ import * as vscode from 'vscode';
 
 const SUPPORTED_LANGUAGE_IDS = ['c', 'cpp', 'cuda-cpp', 'objective-c', 'objective-cpp'] as const;
 
-suite('Constants Replacement Extension', () => {
+suite('Inline Constants Extension', () => {
   const disposables: vscode.Disposable[] = [];
 
   suiteSetup(async () => {
-    const extension = vscode.extensions.getExtension('srejv.constants-replacement');
+    const extension = vscode.extensions.getExtension('srejv.inline-constants');
     if (!extension) {
       throw new Error('Expected extension to be available in the test host.');
     }
@@ -60,7 +60,7 @@ suite('Constants Replacement Extension', () => {
     ].join('\n'));
 
     setCursor(editor, 'emptyStateFontSize', 1);
-    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+    await vscode.commands.executeCommand('inlineConstants.inlineAtCursor');
 
     assert.match(editor.document.getText(), /return 20\.0f;/);
   });
@@ -75,7 +75,7 @@ suite('Constants Replacement Extension', () => {
     ].join('\n'));
 
     setCursor(editor, 'basePadding', 1);
-    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+    await vscode.commands.executeCommand('inlineConstants.inlineAtCursor');
 
     assert.match(editor.document.getText(), /return 24;/);
   });
@@ -90,7 +90,7 @@ suite('Constants Replacement Extension', () => {
     ].join('\n'));
 
     setCursor(editor, 'scaleFactor', 1);
-    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+    await vscode.commands.executeCommand('inlineConstants.inlineAtCursor');
 
     assert.match(editor.document.getText(), /return 1\.5f;/);
   });
@@ -105,7 +105,7 @@ suite('Constants Replacement Extension', () => {
     ].join('\n'));
 
     setCursor(editor, 'EMPTY_STATE_PADDING', 1);
-    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+    await vscode.commands.executeCommand('inlineConstants.inlineAtCursor');
 
     assert.match(editor.document.getText(), /return 24;/);
   });
@@ -121,7 +121,7 @@ suite('Constants Replacement Extension', () => {
     ].join('\n'));
 
     setCursor(editor, 'EMPTY_STATE_SCALE', 1);
-    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+    await vscode.commands.executeCommand('inlineConstants.inlineAtCursor');
 
     assert.match(editor.document.getText(), /return \(18\.0f \+ 2\.0f\);/);
   });
@@ -138,7 +138,7 @@ suite('Constants Replacement Extension', () => {
     ].join('\n'));
 
     setCursor(editor, 'MIX_VALUES', 1);
-    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+    await vscode.commands.executeCommand('inlineConstants.inlineAtCursor');
 
     assert.match(editor.document.getText(), /return \(\(\(left \+ 1\)\) \+\s+\(\(right\)\)\);/);
   });
@@ -153,7 +153,7 @@ suite('Constants Replacement Extension', () => {
     ].join('\n'));
 
     setCursor(editor, 'values', 1);
-    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+    await vscode.commands.executeCommand('inlineConstants.inlineAtCursor');
 
     assert.match(editor.document.getText(), /return \{1, 2, 3\};/);
   });
@@ -178,7 +178,7 @@ suite('Constants Replacement Extension', () => {
     ].join('\n'));
 
     setCursor(editor, 'labelSize', 1);
-    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+    await vscode.commands.executeCommand('inlineConstants.inlineAtCursor');
 
     assert.match(editor.document.getText(), /return 18\.0f;/);
   });
@@ -194,7 +194,7 @@ suite('Constants Replacement Extension', () => {
     ].join('\n'));
 
     setCursor(usageEditor, 'sharedSpacing');
-    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+    await vscode.commands.executeCommand('inlineConstants.inlineAtCursor');
 
     assert.match(usageEditor.document.getText(), /return 28;/);
     assert.match(definitionEditor.document.getText(), /sharedSpacing = 28;/);
@@ -220,7 +220,7 @@ suite('Constants Replacement Extension', () => {
     ].join('\n'));
 
     setCursor(editor, 'labelSize', 1);
-    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+    await vscode.commands.executeCommand('inlineConstants.inlineAtCursor');
 
     assert.match(editor.document.getText(), /return 21\.0f;/);
   });
@@ -235,7 +235,7 @@ suite('Constants Replacement Extension', () => {
     ].join('\n'));
 
     setCursor(editor, 'ADD_ONE', 1);
-    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+    await vscode.commands.executeCommand('inlineConstants.inlineAtCursor');
 
     assert.match(editor.document.getText(), /return \(\(\(alpha \+ beta\)\) \+ 1\);/);
   });
@@ -250,7 +250,7 @@ suite('Constants Replacement Extension', () => {
 
     setCursor(editor, 'emptyStateFontSize');
     const before = editor.document.getText();
-    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+    await vscode.commands.executeCommand('inlineConstants.inlineAtCursor');
 
     assert.equal(editor.document.getText(), before);
   });
@@ -284,7 +284,7 @@ suite('Constants Replacement Extension', () => {
 
     assert.equal(actions.length, 0);
 
-    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+    await vscode.commands.executeCommand('inlineConstants.inlineAtCursor');
     assert.equal(editor.document.getText(), before);
   });
 
@@ -303,7 +303,7 @@ suite('Constants Replacement Extension', () => {
 
     assert.equal(actions.length, 0);
 
-    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+    await vscode.commands.executeCommand('inlineConstants.inlineAtCursor');
     assert.equal(editor.document.getText(), before);
   });
 
@@ -322,7 +322,7 @@ suite('Constants Replacement Extension', () => {
 
     assert.equal(actions.length, 0);
 
-    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+    await vscode.commands.executeCommand('inlineConstants.inlineAtCursor');
     assert.equal(editor.document.getText(), before);
   });
 
@@ -344,7 +344,7 @@ suite('Constants Replacement Extension', () => {
     );
     const hoverText = flattenHoverContents(hovers ?? []);
 
-    assert.match(hoverText, /Replace emptyStateFontSize with value/);
+    assert.match(hoverText, /Inline emptyStateFontSize/);
     assert.match(hoverText, /Inlines to:/);
     assert.match(hoverText, /20\.0f/);
   });
@@ -367,12 +367,12 @@ suite('Constants Replacement Extension', () => {
 
     assert.equal(resolvedLinks.length, 1);
     assert.equal(getDocumentTextForRange(editor.document, resolvedLinks[0].range), 'emptyStatePadding');
-    assert.match(resolvedLinks[0].target?.toString() ?? '', /^command:constantsReplacement\.replaceAtCursor\?/);
+    assert.match(resolvedLinks[0].target?.toString() ?? '', /^command:inlineConstants\.inlineAtCursor\?/);
   });
 
   test('registers the replace command', async () => {
     const commands = await vscode.commands.getCommands(true);
-    assert.ok(commands.includes('constantsReplacement.replaceAtCursor'));
+    assert.ok(commands.includes('inlineConstants.inlineAtCursor'));
   });
 
   test('offers a replace action on usage and not on whitespace', async () => {
@@ -406,7 +406,7 @@ suite('Constants Replacement Extension', () => {
     setCursor(editor, 'emptyStatePadding', 1);
     const before = editor.document.getText();
 
-    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+    await vscode.commands.executeCommand('inlineConstants.inlineAtCursor');
 
     assert.equal(editor.document.getText(), before);
   });
@@ -421,7 +421,7 @@ suite('Constants Replacement Extension', () => {
       ].join('\n'), languageId);
 
       setCursor(editor, 'emptyStatePadding', 1);
-      await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+      await vscode.commands.executeCommand('inlineConstants.inlineAtCursor');
 
       assert.match(editor.document.getText(), /return 24;/);
     });
@@ -476,7 +476,7 @@ suite('Constants Replacement Extension', () => {
 
     assert.equal(actions.length, 0);
 
-    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+    await vscode.commands.executeCommand('inlineConstants.inlineAtCursor');
     assert.equal(editor.document.getText(), before);
   });
 
@@ -494,7 +494,7 @@ suite('Constants Replacement Extension', () => {
 
     assert.equal(actions.length, 0);
 
-    await vscode.commands.executeCommand('constantsReplacement.replaceAtCursor');
+    await vscode.commands.executeCommand('inlineConstants.inlineAtCursor');
     assert.equal(editor.document.getText(), before);
   });
 });
@@ -538,7 +538,7 @@ async function getReplaceActions(
 }
 
 async function getCanReplaceContextValue(): Promise<boolean> {
-  return await vscode.commands.executeCommand<boolean>('constantsReplacement._getCanReplaceAtCursorContext');
+  return await vscode.commands.executeCommand<boolean>('inlineConstants._getCanInlineAtCursorContext');
 }
 
 async function waitForCanReplaceContext(expected: boolean, timeoutMs = 5000): Promise<void> {
@@ -606,12 +606,12 @@ function findDefinitionLocation(
 
 async function setClickBehavior(value: 'disabled' | 'editorLink' | 'hoverLink'): Promise<void> {
   await vscode.workspace
-    .getConfiguration('constantsReplacement')
+    .getConfiguration('inlineConstants')
     .update('clickBehavior', value, vscode.ConfigurationTarget.Global);
 }
 
 async function resetExtensionConfiguration(): Promise<void> {
-  const configuration = vscode.workspace.getConfiguration('constantsReplacement');
+  const configuration = vscode.workspace.getConfiguration('inlineConstants');
   await configuration.update('clickBehavior', undefined, vscode.ConfigurationTarget.Global);
   await configuration.update('parenthesizeExpressions', undefined, vscode.ConfigurationTarget.Global);
 }

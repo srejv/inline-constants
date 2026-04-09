@@ -1,6 +1,6 @@
-# Constants Replacement
+# Inline Constants
 
-A VS Code extension for C, C++, Objective-C, and CUDA C++ that inlines constant usages at the cursor.
+A VS Code extension for C, C++, Objective-C, and CUDA C++ that inlines macro and constant usages at the cursor.
 
 ## What it replaces
 
@@ -11,17 +11,17 @@ A VS Code extension for C, C++, Objective-C, and CUDA C++ that inlines constant 
 
 ## How to use it
 
-- Right-click a constant usage and choose `Replace Constant With Value`
-- Run `Constants Replacement: Replace Constant With Value` from the Command Palette
+- Right-click a constant usage and choose `Inline Constant`
+- Run `Inline Constants: Inline Constant` from the Command Palette
 - Use the Quick Fix or Refactor menu when the cursor is on a replaceable usage
 
 The command is only offered for usages. It will not inline the original definition.
 
 ## Click behavior
 
-Set `constantsReplacement.clickBehavior` to control the optional click workflow.
+Set `inlineConstants.clickBehavior` to control the optional click workflow.
 
-- `hoverLink`: Hover a replaceable usage, then click `Replace ... with value` in the hover tooltip. This is the recommended mode and does not fight `Go to Definition`.
+- `hoverLink`: Hover a replaceable usage, then click `Inline ...` in the hover tooltip. This is the recommended mode and does not fight `Go to Definition`.
 - `editorLink`: Turns same-file constant usages into editor links. This can still lose to VS Code's built-in definition navigation on modified click.
 - `disabled`: Disables click-driven replacement.
 
